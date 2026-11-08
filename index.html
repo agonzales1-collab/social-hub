@@ -21,7 +21,7 @@
     .search{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px;margin-top:18px}
     .search h2{margin:0 0 8px}.search p{color:var(--muted);margin:0 0 14px}
     form{display:flex;gap:10px;flex-wrap:wrap}input{flex:1;min-width:180px;border:1px solid var(--line);border-radius:12px;background:#0b1222;color:white;padding:13px 14px;font:inherit}
-    .note{font-size:13px;color:var(--muted);line-height:1.6;margin-top:24px}.foot{border-top:1px solid var(--line);margin-top:30px;padding-top:18px;color:#8491aa;font-size:12px}
+    .embed{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px;margin-top:18px}.embed h2{margin:0 0 8px}.embed p{color:var(--muted);line-height:1.5}.embed form{margin-top:14px}.embed-stage{margin:20px auto 0;max-width:540px;min-height:40px}.embed-stage blockquote{margin:0 auto!important}.status{color:var(--muted);font-size:13px;margin-top:12px;min-height:20px}.note{font-size:13px;color:var(--muted);line-height:1.6;margin-top:24px}.foot{border-top:1px solid var(--line);margin-top:30px;padding-top:18px;color:#8491aa;font-size:12px}
     @media(max-width:520px){main{padding-top:25px}.card{min-height:190px}}
   </style>
 </head>
@@ -32,13 +32,14 @@
   <p class="sub">A simple launchpad for videos and photos. Pick a destination below, or search YouTube without having to type the address.</p>
   <section class="grid" aria-label="Social apps">
     <article class="card yt"><div class="icon" aria-hidden="true">▶️</div><h2>YouTube</h2><p>Open YouTube or search for a video, creator, or topic.</p><a class="btn" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">Open YouTube ↗</a></article>
-    <article class="card ig"><div class="icon" aria-hidden="true">📸</div><h2>Instagram</h2><p>Open Instagram in its official website.</p><a class="btn" href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer">Open Instagram ↗</a></article>
+    <article class="card ig"><div class="icon" aria-hidden="true">📸</div><h2>Instagram posts</h2><p>View an individual public Instagram post or Reel right here in Social Hub.</p><a class="btn" href="#instagram-embed">Embed a post ↓</a></article>
   </section>
   <section class="search">
     <h2>Search YouTube</h2><p>Type what you want to watch.</p>
     <form id="yt-search"><input id="query" type="search" placeholder="Try music, gaming, tutorials…" aria-label="Search YouTube" required><button type="submit">Search ↗</button></form>
   </section>
-  <p class="note">Heads up: Social Hub is a shortcut web app, not a replacement for the official services. YouTube and Instagram still control sign-in and playback. If either service is blocked or unsupported in your browser or on your network, this app cannot unlock it.</p>
+  <section class="embed" id="instagram-embed"><h2>View a public Instagram post</h2><p>Paste the link to one public Instagram post or Reel. It will be displayed below without opening a new tab. Private posts, Stories, feeds, and DMs are not supported by Instagram embeds.</p><form id="ig-form"><input id="ig-url" type="url" placeholder="https://www.instagram.com/p/…" aria-label="Public Instagram post URL" required><button type="submit">Show post</button></form><div class="status" id="ig-status" role="status">Instagram must be reachable on this network for the post to load.</div><div class="embed-stage" id="ig-stage"></div></section>
+  <p class="note">Important: this is an official Instagram embed, not a full Instagram app. If your school network blocks Instagram, the post will not load here either. Social Hub cannot override your school’s network rules.</p>
   <div class="foot">Social Hub · Made to keep your links together</div>
 </main>
 <script>
@@ -47,6 +48,38 @@
     const q = document.getElementById('query').value.trim();
     if (q) window.open('https://www.youtube.com/results?search_query=' + encodeURIComponent(q), '_blank', 'noopener');
   });
+
+  const igForm = document.getElementById('ig-form');
+  const igInput = document.getElementById('ig-url');
+  const igStage = document.getElementById('ig-stage');
+  const igStatus = document.getElementById('ig-status');
+  let igScriptStarted = false;
+  igForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+    let parsed;
+    try { parsed = new URL(igInput.value.trim()); } catch { igStatus.textContent = 'Please paste a valid public Instagram post or Reel link.'; return; }
+    if (!['instagram.com','www.instagram.com','m.instagram.com'].includes(parsed.hostname)) { igStatus.textContent = 'That is not an Instagram link.'; return; }
+    if (!/^\/(p|reel|tv)\/[A-Za-z0-9_-]+\/?$/.test(parsed.pathname)) { igStatus.textContent = 'Use a link to one public post or Reel (instagram.com/p/… or /reel/…).'; return; }
+    const cleanUrl = 'https://www.instagram.com' + parsed.pathname;
+    igStage.replaceChildren();
+    const quote = document.createElement('blockquote');
+    quote.className = 'instagram-media';
+    quote.setAttribute('data-instgrm-permalink', cleanUrl);
+    quote.setAttribute('data-instgrm-version', '14');
+    quote.style.cssText = 'background:#fff;border:0;border-radius:8px;margin:0 auto;max-width:540px;min-width:280px;padding:0;width:100%';
+    igStage.appendChild(quote);
+    igStatus.textContent = 'Loading the public post from Instagram…';
+    if (window.instgrm && window.instgrm.Embeds) { window.instgrm.Embeds.process(); }
+    else if (!igScriptStarted) {
+      igScriptStarted = true;
+      const script = document.createElement('script');
+      script.async = true; script.src = 'https://www.instagram.com/embed.js';
+      script.onload = () => { if (window.instgrm && window.instgrm.Embeds) window.instgrm.Embeds.process(); };
+      script.onerror = () => { igStatus.textContent = 'Instagram could not be reached. The network may be blocking it.'; };
+      document.body.appendChild(script);
+    }
+  });
+
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
   }
